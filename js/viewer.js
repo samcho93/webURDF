@@ -1,7 +1,9 @@
 // viewer.js — three.js scene: robot display, overlays (frames, joint axes, COM,
-// inertia), selection by clicking, joint dragging, screenshots and GLB export.
+// inertia), selection by clicking, joint dragging, the transform gizmo that
+// edits joint origins / shape poses, screenshots and GLB export.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { PointerURDFDragControls } from 'urdf-loader/src/URDFDragControls.js';
@@ -74,20 +76,53 @@ export class Viewer extends EventTarget {
     this.drag.onDragEnd = () => { controls.enabled = true; };
     this.drag.onHover = (joint) => this.setHoverJoint(joint);
     this.drag.onUnhover = () => this.setHoverJoint(null);
+    // urdf-loader never checks `enabled`: gate hovering here so a disabled drag
+    // (or an active gizmo) cannot grab joints
+    const dragUpdate = this.drag.update.bind(this.drag);
+    this.drag.update = () => {
+      if (!this.drag.enabled || this.gizmo?.dragging || (this.gizmo?.object && this.gizmo.axis)) {
+        if (this.drag.hovered && !this.drag.manipulating) { this.drag.onUnhover(this.drag.hovered); this.drag.hovered = null; }
+        return;
+      }
+      dragUpdate();
+    };
     this.drag.updateJoint = (joint, angle) => {
       this.dragMoved = true;
       this.robot?.setJointValue(joint.name, angle);
       this.dispatchEvent(new CustomEvent('joint-change', { detail: { name: joint.name, value: angle, source: 'drag' } }));
     };
 
+    // transform gizmo (registered before our pointer listeners so its state is
+    // already updated when they run)
+    this.gizmoMode = 'off';          // off | translate | rotate | scale
+    this.gizmoTarget = 'joint';      // joint | visual | collision
+    this.gizmoShapeIndex = 0;
+    this.gizmoCtx = null;
+    const gizmo = this.gizmo = new TransformControls(this.camera, renderer.domElement);
+    gizmo.setSize(0.85);
+    gizmo.setSpace('local');
+    scene.add(gizmo.getHelper());
+    gizmo.addEventListener('dragging-changed', (e) => {
+      controls.enabled = !e.value;
+      if (e.value) this.gizmoMoved = false;
+    });
+    gizmo.addEventListener('objectChange', () => { this.gizmoMoved = true; this.onGizmoChange(); });
+    gizmo.addEventListener('mouseUp', () => {
+      if (this.gizmoMoved && this.gizmoCtx) this.dispatchEvent(new CustomEvent('gizmo-commit', { detail: this.gizmoResult() }));
+    });
+
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
-    let downAt = null;
-    renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; this.dragMoved = false; });
+    let downAt = null, downOnGizmo = false;
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      downAt = [e.clientX, e.clientY];
+      this.dragMoved = false;
+      downOnGizmo = !!(gizmo.object && (gizmo.dragging || gizmo.axis));
+    });
     renderer.domElement.addEventListener('pointerup', (e) => {
-      if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 4 || this.dragMoved) return;
-      const link = this.pick(e);
-      this.dispatchEvent(new CustomEvent('pick', { detail: { link: link?.name || null, shift: e.shiftKey } }));
+      if (!downAt || downOnGizmo || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 4 || this.dragMoved) return;
+      const hit = this.pickHit(e);
+      this.dispatchEvent(new CustomEvent('pick', { detail: { link: hit?.link.name || null, shape: hit?.shape || null, shift: e.shiftKey } }));
     });
     renderer.domElement.addEventListener('dblclick', (e) => {
       const link = this.pick(e);
@@ -159,12 +194,19 @@ export class Viewer extends EventTarget {
     if (robot) {
       this.world.add(robot);
       robot.add(this.overlays);
-      robot.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
+      robot.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = o.receiveShadow = true;
+        // urdf-loader shares one material per named <material>; give each mesh
+        // its own so highlighting one link does not tint the others
+        o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
+      });
     }
     this.applyUpAxis();
     this.rebuildOverlays();
     this.applyDisplay();
     if (!keepView) this.fit();
+    this.attachGizmo();
   }
 
   // Called when meshes finish loading (bounds change).
@@ -251,7 +293,7 @@ export class Viewer extends EventTarget {
     if (key === 'upAxis') { this.applyUpAxis(); this.fit(); }
     else if (key === 'grid') { this.grid.visible = value; this.worldAxes.visible = value; }
     else if (key === 'shadows') { this.renderer.shadowMap.enabled = value; this.ground.visible = value; this.sun.castShadow = value; this.robot?.traverse((o) => { if (o.material) o.material.needsUpdate = true; }); }
-    else if (key === 'drag') { this.drag.enabled = value; }
+    else if (key === 'drag') { this.drag.enabled = value && this.gizmoMode === 'off'; }
     else if (key === 'labels') { this.labelRenderer.domElement.style.display = value ? '' : 'none'; this.rebuildOverlays(); }
     else if (['frames', 'jointAxes', 'com', 'inertia'].includes(key)) this.rebuildOverlays();
     else this.applyDisplay();
@@ -300,10 +342,126 @@ export class Viewer extends EventTarget {
     return null;
   }
 
+  // Like pick(), plus which <visual>/<collision> (kind + index) was hit.
+  pickHit(e) {
+    const link = this.pick(e);
+    if (!link) return null;
+    const hits = this.raycaster.intersectObject(link, true)
+      .filter((h) => h.object.visible && isVisibleChain(h.object) && !isOverlay(h.object) && findLink(h.object) === link);
+    let shape = null;
+    for (const h of hits) {
+      const s = findAncestor(h.object, (a) => a.isURDFVisual || a.isURDFCollider);
+      if (!s || s.parent !== link) continue;
+      const kind = s.isURDFVisual ? 'visual' : 'collision';
+      shape = { kind, index: link.children.filter((c) => (kind === 'visual' ? c.isURDFVisual : c.isURDFCollider)).indexOf(s) };
+      break;
+    }
+    return { link, shape };
+  }
+
   select(name) {
+    // keep the chosen shape when the same link is re-selected after a rebuild
+    if (name !== this.gizmoLinkName) this.gizmoShapeIndex = 0;
+    this.gizmoLinkName = name;
     this.selected = name;
     this.applyHighlight();
     this.rebuildOverlays();
+    this.attachGizmo();
+  }
+
+  // ------------------------------------------------------------------ gizmo
+  setGizmo({ mode, target, index, space, snap } = {}) {
+    if (mode !== undefined) this.gizmoMode = mode;
+    if (target !== undefined) this.gizmoTarget = target;
+    if (index !== undefined) this.gizmoShapeIndex = index;
+    if (space) this.gizmo.setSpace(space);
+    if (snap !== undefined) {
+      const [t, r, sc] = snap || [null, null, null];
+      this.gizmo.setTranslationSnap(t);
+      this.gizmo.setRotationSnap(r == null ? null : THREE.MathUtils.degToRad(r));
+      this.gizmo.setScaleSnap(sc);
+    }
+    this.attachGizmo();
+  }
+
+  detachGizmo() {
+    this.gizmo.detach();
+    this.gizmoCtx?.proxy?.removeFromParent();
+    this.gizmoCtx = null;
+  }
+
+  // Attach the gizmo to the selected link's joint origin or to one of its shapes.
+  attachGizmo() {
+    this.detachGizmo();
+    const mode = this.gizmoMode;
+    const state = (msg, ok = false) => this.dispatchEvent(new CustomEvent('gizmo-state', { detail: { msg, ok, ctx: this.gizmoCtx } }));
+    if (mode === 'off') return state('');
+    const link = this.robot?.links[this.selected];
+    if (!link) return state('편집할 링크를 3D 뷰나 트리에서 선택하세요');
+
+    if (this.gizmoTarget === 'joint') {
+      const joint = link.parent?.isURDFJoint ? link.parent : null;
+      if (!joint) return state('루트 링크는 부모 조인트가 없어 원점을 옮길 수 없습니다');
+      if (mode === 'scale') return state('조인트 원점에는 크기 조절이 없습니다 — 이동(W)/회전(E)을 쓰세요');
+      if (!joint.origPosition) { joint.origPosition = joint.position.clone(); joint.origQuaternion = joint.quaternion.clone(); }
+      const proxy = new THREE.Object3D();
+      proxy.name = '__gizmo_proxy';
+      proxy.position.copy(joint.origPosition);
+      proxy.quaternion.copy(joint.origQuaternion);
+      joint.parent.add(proxy);
+      this.gizmoCtx = { kind: 'joint', joint, proxy, link: link.name };
+      this.gizmo.setMode(mode);
+      this.gizmo.attach(proxy);
+      return state(`조인트 "${joint.name}" 원점`, true);
+    }
+
+    const kind = this.gizmoTarget;
+    const shapes = link.children.filter((c) => (kind === 'visual' ? c.isURDFVisual : c.isURDFCollider));
+    if (!shapes.length) return state(`이 링크에는 ${kind === 'visual' ? '비주얼' : '충돌'} 형상이 없습니다`);
+    const index = Math.min(this.gizmoShapeIndex, shapes.length - 1);
+    const obj = shapes[index];
+    obj.userData.gizmoBaseScale = obj.scale.clone();
+    this.gizmoCtx = { kind, obj, index, link: link.name, count: shapes.length };
+    this.gizmo.setMode(mode);
+    this.gizmo.attach(obj);
+    return state(`${kind === 'visual' ? '비주얼' : '충돌'} #${index + 1}/${shapes.length}`, true);
+  }
+
+  // Live preview while dragging: move the joint frame itself, keeping the
+  // current joint value applied on top of the new origin.
+  onGizmoChange() {
+    const c = this.gizmoCtx;
+    if (!c) return;
+    if (c.kind === 'joint') {
+      const j = c.joint;
+      j.origPosition.copy(c.proxy.position);
+      j.origQuaternion.copy(c.proxy.quaternion);
+      const v = j.jointValue?.[0] || 0;
+      j.position.copy(j.origPosition);
+      j.quaternion.copy(j.origQuaternion);
+      if (j.jointType === 'revolute' || j.jointType === 'continuous') {
+        j.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(j.axis, v).premultiply(j.origQuaternion));
+      } else if (j.jointType === 'prismatic') {
+        j.position.addScaledVector(j.axis.clone().applyQuaternion(j.origQuaternion), v);
+      }
+      j.updateMatrixWorld(true);
+    }
+    this.dispatchEvent(new CustomEvent('gizmo-live', { detail: this.gizmoResult() }));
+  }
+
+  gizmoResult() {
+    const c = this.gizmoCtx;
+    if (!c) return null;
+    const o = c.kind === 'joint' ? c.proxy : c.obj;
+    const e = new THREE.Euler().setFromQuaternion(o.quaternion, 'ZYX');
+    const r = { kind: c.kind, link: c.link, xyz: o.position.toArray(), rpy: [e.x, e.y, e.z] };
+    if (c.kind === 'joint') r.joint = c.joint.name;
+    else {
+      r.index = c.index;
+      const b = o.userData.gizmoBaseScale || new THREE.Vector3(1, 1, 1);
+      r.scaleFactor = [o.scale.x / (b.x || 1), o.scale.y / (b.y || 1), o.scale.z / (b.z || 1)];
+    }
+    return r;
   }
 
   setHoverJoint(joint) {
@@ -423,6 +581,9 @@ export class Viewer extends EventTarget {
   // ------------------------------------------------------------------ export
   screenshot(scale = 2) {
     const { renderer, camera } = this;
+    const helper = this.gizmo.getHelper();
+    const helperVisible = helper.visible;
+    helper.visible = false;
     const w = this.container.clientWidth, h = this.container.clientHeight;
     const pr = renderer.getPixelRatio();
     renderer.setPixelRatio(scale);
@@ -431,6 +592,7 @@ export class Viewer extends EventTarget {
     const url = renderer.domElement.toDataURL('image/png');
     renderer.setPixelRatio(pr);
     renderer.setSize(w, h);
+    helper.visible = helperVisible;
     return url;
   }
 

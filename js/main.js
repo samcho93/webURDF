@@ -168,6 +168,7 @@ async function rebuild({ fresh = false, fromEditor = false, keepView = true, fit
   viewer.setRobot(robot, S.model, { keepView });
   viewer.select(S.selected);
   $('#welcome').classList.add('hidden');
+  $('#gizmo-toolbar').hidden = false;
 
   if (!fromEditor) editor.setValue(S.source, { keepScroll: !fresh });
   setCodeMode();
@@ -562,6 +563,7 @@ function renderProps() {
     }
     if (joint.mimic) grid.append(h('label', {}, 'mimic'), h('span', { class: 'sm' }, `${joint.mimic.joint} × ${joint.mimic.multiplier} + ${joint.mimic.offset}`));
     root.append(h('h3', {}, '부모 조인트', h('span', { class: 'spacer' }),
+      h('button', { class: 'btn sm', title: '조인트 원점을 3D 핸들로 편집', onclick: () => { $('#gizmo-target').value = 'joint'; viewer.setGizmo({ target: 'joint' }); if (viewer.gizmoMode === 'off') setGizmoMode('translate'); } }, '✥ 3D'),
       h('button', { class: 'btn sm', title: '코드에서 보기', onclick: () => { activateTab('code'); editor.reveal('joint', joint.name); } }, '</>')), grid);
   } else {
     root.append(h('p', { class: 'hint' }, '루트 링크입니다 (부모 조인트 없음).'));
@@ -604,6 +606,7 @@ function renderProps() {
     }
     return h('div', { class: 'card' },
       h('div', { class: 'card-head' }, `${kind === 'visual' ? '비주얼' : '충돌'} #${idx + 1}`, s.name ? h('span', { class: 'muted' }, s.name) : null, h('span', { class: 'spacer' }),
+        h('button', { class: 'btn sm', type: 'button', title: '3D 핸들로 편집', onclick: () => editShapeIn3D(kind, idx) }, '✥ 3D'),
         h('button', { class: 'btn sm danger', type: 'button', title: '삭제', onclick: () => { s.el.remove(); commitDoc({ structural: true }); } }, '✕')),
       grid);
   });
@@ -953,6 +956,102 @@ const applyCode = debounce(() => { if (editor.value !== S.source) setSource(edit
 editor.onChange = () => { if ($('#code-live').checked) applyCode(); };
 
 // ============================================================================
+// 3D transform gizmo
+// ============================================================================
+
+function setGizmoMode(mode) {
+  if (!S.model && mode !== 'off') return;
+  for (const b of $$('[data-gizmo]')) b.classList.toggle('active', b.dataset.gizmo === mode);
+  $('#gizmo-toolbar').classList.toggle('on', mode !== 'off');
+  // joint dragging would fight with the handles
+  viewer.drag.enabled = mode === 'off' && viewer.opts.drag;
+  viewer.setGizmo({ mode });
+}
+
+function toggleGizmoSpace() {
+  const next = viewer.gizmo.space === 'local' ? 'world' : 'local';
+  viewer.setGizmo({ space: next });
+  $('#gizmo-space').textContent = next === 'local' ? '로컬' : '월드';
+}
+
+function editShapeIn3D(kind, index) {
+  $('#gizmo-target').value = kind;
+  if (kind === 'collision' && !viewer.opts.collision) setDisplayOpt('collision', true);
+  viewer.setGizmo({ target: kind, index });
+  if (viewer.gizmoMode === 'off') setGizmoMode('translate');
+}
+
+function setDisplayOpt(key, value) {
+  const el = $(`[data-opt="${key}"]`);
+  if (el) el.checked = value;
+  viewer.set(key, value);
+  saveOpts();
+}
+
+for (const b of $$('[data-gizmo]')) b.addEventListener('click', () => setGizmoMode(b.dataset.gizmo));
+$('#gizmo-space').addEventListener('click', toggleGizmoSpace);
+$('#gizmo-target').addEventListener('change', (e) => {
+  const t = e.target.value;
+  if (t === 'collision' && !viewer.opts.collision) setDisplayOpt('collision', true);
+  viewer.setGizmo({ target: t, index: 0 });
+});
+$('#gizmo-index').addEventListener('change', (e) => viewer.setGizmo({ index: +e.target.value }));
+$('#gizmo-snap').addEventListener('change', (e) => {
+  const v = e.target.value;
+  viewer.setGizmo({ snap: v ? v.split(',').map(Number) : null });
+});
+
+viewer.addEventListener('gizmo-state', (e) => {
+  const { msg, ok, ctx } = e.detail;
+  const note = $('#gizmo-note');
+  note.className = 'gizmo-note' + (ok ? '' : ' warn');
+  note.textContent = msg;
+  const sel = $('#gizmo-index');
+  sel.innerHTML = '';
+  if (ctx && ctx.count > 1) {
+    for (let i = 0; i < ctx.count; i++) sel.appendChild(h('option', { value: i, selected: i === ctx.index }, `#${i + 1}`));
+    sel.disabled = false;
+  } else sel.disabled = true;
+});
+
+viewer.addEventListener('gizmo-live', (e) => {
+  const r = e.detail;
+  if (!r) return;
+  const deg = useDeg(), k = deg ? RAD2DEG : 1;
+  let t = `xyz ${r.xyz.map((v) => num(v, 4)).join(' ')}\nrpy ${r.rpy.map((v) => num(v * k, deg ? 2 : 4)).join(' ')} ${deg ? '°' : 'rad'}`;
+  if (r.scaleFactor && r.scaleFactor.some((v) => Math.abs(v - 1) > 1e-6)) t += `\n×   ${r.scaleFactor.map((v) => num(v, 3)).join(' ')}`;
+  $('#gizmo-note').className = 'gizmo-note';
+  $('#gizmo-note').textContent = t;
+});
+
+// strip float noise from gizmo values without losing precision of untouched axes
+const roundGizmo = (a) => a.map((v) => { const r = Math.round(v * 1e9) / 1e9; return Object.is(r, -0) ? 0 : r; });
+
+viewer.addEventListener('gizmo-commit', async (e) => {
+  const r = e.detail;
+  if (!r || !S.model) return;
+  if (r.kind === 'joint') {
+    await editJoint(r.joint, { xyz: roundGizmo(r.xyz), rpy: roundGizmo(r.rpy) });
+    return;
+  }
+  const link = S.model.linkMap.get(r.link);
+  const shape = link && (r.kind === 'visual' ? link.visuals : link.collisions)[r.index];
+  if (!shape) return;
+  const hadOrigin = !!shape.origin;
+  M.setOrigin(shape.el, roundGizmo(r.xyz), roundGizmo(r.rpy));
+  const f = r.scaleFactor || [1, 1, 1];
+  if (f.some((v) => Math.abs(v - 1) > 1e-6)) {
+    const g = shape.geometry;
+    const avg = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+    if (g.type === 'box') M.setGeometry(shape.el, { ...g, size: roundGizmo(g.size.map((v, i) => v * f[i])) });
+    else if (g.type === 'sphere') M.setGeometry(shape.el, { ...g, radius: roundGizmo([g.radius * avg(f)])[0] });
+    else if (g.type === 'cylinder' || g.type === 'capsule') M.setGeometry(shape.el, { ...g, radius: roundGizmo([g.radius * avg([f[0], f[1]])])[0], length: roundGizmo([g.length * f[2]])[0] });
+    else if (g.type === 'mesh') M.setGeometry(shape.el, { ...g, scale: roundGizmo((g.scale || [1, 1, 1]).map((v, i) => v * f[i])) });
+  }
+  await commitDoc({ structural: !hadOrigin });
+});
+
+// ============================================================================
 // Export
 // ============================================================================
 
@@ -1055,7 +1154,10 @@ function helpDialog() {
       h('b', {}, '메시 경로'), h('span', {}, 'package://, 상대 경로, file:// 모두 지원 (package.xml / 폴더 이름 / 파일 이름으로 탐색)'),
       h('b', {}, '메시 형식'), h('span', {}, 'STL, DAE(Collada), OBJ(+MTL), GLB/glTF, PLY'),
       h('b', {}, '3D 조작'), h('span', {}, '왼쪽 드래그 회전 · 오른쪽 드래그 이동 · 휠 확대 · 링크 드래그로 관절 이동 · 클릭 선택 · 더블클릭 확대'),
+      h('b', {}, '3D 편집'), h('span', {}, '왼쪽 위 이동/회전/크기 버튼 → 선택한 링크의 조인트 원점 또는 비주얼/충돌 형상을 핸들로 끌어서 편집 (URDF 에 저장, 실행 취소 가능)'),
       h('kbd', {}, 'F'), h('span', {}, '화면 맞춤'),
+      h('kbd', {}, 'W / E / R'), h('span', {}, '3D 편집 핸들: 이동 / 회전 / 크기 (다시 누르면 끔)'),
+      h('kbd', {}, 'Q'), h('span', {}, '핸들 좌표계: 로컬 ↔ 월드'),
       h('kbd', {}, 'Esc'), h('span', {}, '선택 해제'),
       h('kbd', {}, 'Ctrl+O'), h('span', {}, '파일 열기'),
       h('kbd', {}, 'Ctrl+S'), h('span', {}, 'URDF 저장'),
@@ -1276,7 +1378,11 @@ window.addEventListener('paste', (e) => {
 });
 
 // viewer picks
-viewer.addEventListener('pick', (e) => select(e.detail.link, { from: 'viewer' }));
+viewer.addEventListener('pick', (e) => {
+  const { link, shape } = e.detail;
+  select(link, { from: 'viewer' });
+  if (link && shape && viewer.gizmoMode !== 'off' && viewer.gizmoTarget === shape.kind) viewer.setGizmo({ index: shape.index });
+});
 viewer.addEventListener('grid', (e) => {
   const s = e.detail.step;
   $('#grid-note').textContent = `격자 ${s >= 1 ? s + ' m' : s >= 0.01 ? s * 100 + ' cm' : s * 1000 + ' mm'}`;
@@ -1310,6 +1416,10 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
   else if (e.key === 'f' || e.key === 'F') viewer.fit();
+  else if (!mod && (e.key === 'w' || e.key === 'W')) setGizmoMode(viewer.gizmoMode === 'translate' ? 'off' : 'translate');
+  else if (!mod && (e.key === 'e' || e.key === 'E')) setGizmoMode(viewer.gizmoMode === 'rotate' ? 'off' : 'rotate');
+  else if (!mod && (e.key === 'r' || e.key === 'R')) setGizmoMode(viewer.gizmoMode === 'scale' ? 'off' : 'scale');
+  else if (!mod && (e.key === 'q' || e.key === 'Q')) toggleGizmoSpace();
   else if (e.key === 'Escape') select(null);
   else if (e.key === '?') helpDialog();
 });

@@ -176,6 +176,16 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
 .tbtn { border: 0; background: var(--panel); padding: 5px 9px; cursor: pointer; font-size: 12px; }
 .tbtn:hover { background: var(--accent-2); }
 .menu > .tbtn { border: 1px solid var(--line); border-radius: 7px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.gizmo-toolbar { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; z-index: 6; max-width: calc(100% - 260px); }
+.gizmo-toolbar[hidden] { display: none; }
+.gizmo-toolbar .tbtn.active { background: var(--accent); color: #fff; }
+.gizmo-opts { display: none; gap: 4px; flex-wrap: wrap; align-items: center; }
+.gizmo-toolbar.on .gizmo-opts { display: flex; }
+.gizmo-opts select, .gizmo-opts .tbtn { font-size: 12px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.gizmo-opts select:disabled { display: none; }
+.gizmo-note { font: 11.5px var(--mono); color: var(--text); background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; white-space: pre; display: none; }
+.gizmo-note:not(:empty) { display: block; }
+.gizmo-note.warn { color: var(--warn); font-family: inherit; white-space: normal; }
 .status { position: absolute; left: 10px; bottom: 8px; font-size: 11.5px; color: var(--muted); background: color-mix(in srgb, var(--panel) 80%, transparent); padding: 3px 8px; border-radius: 6px; pointer-events: none; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status:empty { display: none; }
 .grid-note { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: var(--muted); pointer-events: none; }
@@ -324,6 +334,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 11.5px; }
   .stage { order: 1; flex: none; height: 58vh; }
   .resizer { display: none; }
   .view-toolbar { top: 6px; right: 6px; }
+  .gizmo-toolbar { top: auto; bottom: 30px; left: 6px; max-width: calc(100% - 12px); }
+  .gizmo-toolbar .tbtn { padding: 5px 7px; }
   .welcome-card { padding: 16px; }
   .welcome { align-items: flex-start; }
 }

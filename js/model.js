@@ -65,7 +65,8 @@ export function extract(doc) {
       let rgba = null, matName = mat?.getAttribute('name') || null;
       const col = mat && kid(mat, 'color');
       if (col) rgba = vec(col.getAttribute('rgba'), 4, 1);
-      return { name: el.getAttribute('name') || '', ...readOrigin(el), geometry: readGeometry(kid(el, 'geometry')), material: matName, rgba, el };
+      const o = readOrigin(el);
+      return { name: el.getAttribute('name') || '', xyz: o.xyz, rpy: o.rpy, origin: o.el, geometry: readGeometry(kid(el, 'geometry')), material: matName, rgba, el };
     };
     const link = {
       name: l.getAttribute('name') || '', el: l, inertial,
@@ -77,10 +78,11 @@ export function extract(doc) {
   for (const j of kids(robot, 'joint')) {
     const lim = kid(j, 'limit'), dyn = kid(j, 'dynamics'), mim = kid(j, 'mimic'), ax = kid(j, 'axis');
     const num = (el, k) => (el && el.hasAttribute(k) ? +el.getAttribute(k) : null);
+    const o = readOrigin(j);
     const joint = {
       name: j.getAttribute('name') || '', type: j.getAttribute('type') || '', el: j,
       parent: kid(j, 'parent')?.getAttribute('link') || '', child: kid(j, 'child')?.getAttribute('link') || '',
-      ...readOrigin(j),
+      xyz: o.xyz, rpy: o.rpy, origin: o.el,
       axis: ax ? vec(ax.getAttribute('xyz')) : [1, 0, 0], hasAxis: !!ax,
       limit: lim ? { lower: num(lim, 'lower'), upper: num(lim, 'upper'), effort: num(lim, 'effort'), velocity: num(lim, 'velocity') } : null,
       dynamics: dyn ? { damping: num(dyn, 'damping'), friction: num(dyn, 'friction') } : null,
