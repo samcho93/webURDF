@@ -1,0 +1,363 @@
+{
+ "version": 1,
+ "groups": [
+  {
+   "id": "mentorpi",
+   "name": "MentorPi",
+   "description": "Hiwonder MentorPi 모바일 로봇 — 애커만 / 메카넘 휠 (STL)",
+   "repo": "https://github.com/samcho93/studyMentorPi",
+   "entries": [
+    {
+     "path": "mentorpi/mentorpi_ackermann.urdf",
+     "label": "애커만"
+    },
+    {
+     "path": "mentorpi/mentorpi_mecanum.urdf",
+     "label": "메카넘"
+    }
+   ],
+   "files": [
+    {
+     "path": "mentorpi/mentorpi_ackermann.urdf",
+     "size": 7340
+    },
+    {
+     "path": "mentorpi/mentorpi_mecanum.urdf",
+     "size": 7308
+    },
+    {
+     "path": "mentorpi/meshes/acker/base_link.stl",
+     "size": 550534
+    },
+    {
+     "path": "mentorpi/meshes/acker/cam_Link.stl",
+     "size": 197184
+    },
+    {
+     "path": "mentorpi/meshes/acker/lidar_Link.stl",
+     "size": 122684
+    },
+    {
+     "path": "mentorpi/meshes/acker/wheel_lb_Link.stl",
+     "size": 344534
+    },
+    {
+     "path": "mentorpi/meshes/acker/wheel_lf_Link.stl",
+     "size": 337934
+    },
+    {
+     "path": "mentorpi/meshes/acker/wheel_rb_Link.stl",
+     "size": 342984
+    },
+    {
+     "path": "mentorpi/meshes/acker/wheel_rf_Link.stl",
+     "size": 335034
+    },
+    {
+     "path": "mentorpi/meshes/mecanum/base_link.stl",
+     "size": 448084
+    },
+    {
+     "path": "mentorpi/meshes/mecanum/cam_Link.stl",
+     "size": 197184
+    },
+    {
+     "path": "mentorpi/meshes/mecanum/lidar_Link.stl",
+     "size": 127834
+    },
+    {
+     "path": "mentorpi/meshes/mecanum/wheel_lb_Link.stl",
+     "size": 424834
+    },
+    {
+     "path": "mentorpi/meshes/mecanum/wheel_lf_Link.stl",
+     "size": 420584
+    },
+    {
+     "path": "mentorpi/meshes/mecanum/wheel_rb_Link.stl",
+     "size": 420484
+    },
+    {
+     "path": "mentorpi/meshes/mecanum/wheel_rf_Link.stl",
+     "size": 425284
+    }
+   ]
+  },
+  {
+   "id": "tiki",
+   "name": "TIKI",
+   "description": "TIKI MINI 차동 구동 로봇 — package:// 경로, xacro (STL)",
+   "repo": "https://github.com/samcho93/studyTIKI",
+   "entries": [
+    {
+     "path": "tiki/tiki_description/urdf/tiki_mini.urdf",
+     "label": "URDF"
+    },
+    {
+     "path": "tiki/tiki_gazebo/urdf/tiki_gazebo.urdf.xacro",
+     "label": "Gazebo xacro"
+    }
+   ],
+   "files": [
+    {
+     "path": "tiki/tiki_description/meshes/cad_body.stl",
+     "size": 1215284
+    },
+    {
+     "path": "tiki/tiki_description/meshes/cad_caster.stl",
+     "size": 81584
+    },
+    {
+     "path": "tiki/tiki_description/meshes/cad_cover.stl",
+     "size": 274284
+    },
+    {
+     "path": "tiki/tiki_description/meshes/cad_frame.json",
+     "size": 396
+    },
+    {
+     "path": "tiki/tiki_description/meshes/cad_hardware.stl",
+     "size": 548184
+    },
+    {
+     "path": "tiki/tiki_description/meshes/cad_hub.stl",
+     "size": 133884
+    },
+    {
+     "path": "tiki/tiki_description/meshes/cad_internals.stl",
+     "size": 391184
+    },
+    {
+     "path": "tiki/tiki_description/meshes/cad_tire.stl",
+     "size": 100184
+    },
+    {
+     "path": "tiki/tiki_description/meshes/camera.stl",
+     "size": 7484
+    },
+    {
+     "path": "tiki/tiki_description/meshes/lidar.stl",
+     "size": 127834
+    },
+    {
+     "path": "tiki/tiki_description/meshes/lidar_mount.stl",
+     "size": 684
+    },
+    {
+     "path": "tiki/tiki_description/package.xml",
+     "size": 752
+    },
+    {
+     "path": "tiki/tiki_description/urdf/tiki_mini.urdf",
+     "size": 8167
+    },
+    {
+     "path": "tiki/tiki_gazebo/package.xml",
+     "size": 784
+    },
+    {
+     "path": "tiki/tiki_gazebo/urdf/tiki_gazebo.urdf.xacro",
+     "size": 4136
+    }
+   ]
+  },
+  {
+   "id": "so101",
+   "name": "SO-ARM101",
+   "description": "SO-ARM101 6축 로봇팔 — CAD 메시 URDF / 매크로 xacro",
+   "repo": "https://github.com/samcho93/studySOArm101",
+   "entries": [
+    {
+     "path": "so101/so_arm101_description/urdf/so101_new_calib.urdf",
+     "label": "CAD 메시"
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/so_arm101.urdf.xacro",
+     "label": "xacro (기본도형)"
+    }
+   ],
+   "files": [
+    {
+     "path": "so101/LICENSE-SO-ARM100",
+     "size": 11357
+    },
+    {
+     "path": "so101/so_arm101_description/config/controllers.yaml",
+     "size": 1783
+    },
+    {
+     "path": "so101/so_arm101_description/config/joint_limits.yaml",
+     "size": 1589
+    },
+    {
+     "path": "so101/so_arm101_description/package.xml",
+     "size": 1007
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/base_motor_holder_so101_v1.stl",
+     "size": 1877084
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/base_so101_v2.stl",
+     "size": 471584
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/motor_holder_so101_base_v1.stl",
+     "size": 1129384
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/motor_holder_so101_wrist_v1.stl",
+     "size": 1052184
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/moving_jaw_so101_v1.stl",
+     "size": 1413584
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/rotation_pitch_so101_v1.stl",
+     "size": 883684
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/sts3215_03a_no_horn_v1.stl",
+     "size": 865884
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/sts3215_03a_v1.stl",
+     "size": 954084
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/under_arm_so101_v1.stl",
+     "size": 1975884
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/upper_arm_so101_v1.stl",
+     "size": 1303484
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/waveshare_mounting_plate_so101_v2.stl",
+     "size": 62784
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/wrist_roll_follower_so101_v1.stl",
+     "size": 1439884
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/assets/wrist_roll_pitch_so101_v2.stl",
+     "size": 2699784
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/so101.gazebo.xacro",
+     "size": 1650
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/so101.ros2_control.xacro",
+     "size": 3827
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/so101_macro.xacro",
+     "size": 9448
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/so101_new_calib.urdf",
+     "size": 16683
+    },
+    {
+     "path": "so101/so_arm101_description/urdf/so_arm101.urdf.xacro",
+     "size": 1668
+    }
+   ]
+  },
+  {
+   "id": "go2",
+   "name": "Unitree GO2",
+   "description": "Unitree GO2 4족 보행 로봇 — 12 자유도 (GLB)",
+   "repo": "https://github.com/samcho93/studyGO2",
+   "entries": [
+    {
+     "path": "go2/go2_description.urdf",
+     "label": "GO2"
+    }
+   ],
+   "files": [
+    {
+     "path": "go2/go2_description.urdf",
+     "size": 27306
+    },
+    {
+     "path": "go2/LICENSE",
+     "size": 1558
+    },
+    {
+     "path": "go2/meshes/base.glb",
+     "size": 2780728
+    },
+    {
+     "path": "go2/meshes/calf.glb",
+     "size": 344112
+    },
+    {
+     "path": "go2/meshes/calf_mirror.glb",
+     "size": 344116
+    },
+    {
+     "path": "go2/meshes/foot.glb",
+     "size": 161472
+    },
+    {
+     "path": "go2/meshes/hip.glb",
+     "size": 1554516
+    },
+    {
+     "path": "go2/meshes/thigh.glb",
+     "size": 1179720
+    },
+    {
+     "path": "go2/meshes/thigh_mirror.glb",
+     "size": 1179276
+    }
+   ]
+  },
+  {
+   "id": "delta",
+   "name": "Delta Robot",
+   "description": "델타 병렬 로봇 — 설계 프리셋별 생성 URDF (기본도형)",
+   "repo": "https://github.com/samcho93/studyDeltaRobot",
+   "entries": [
+    {
+     "path": "delta/delta_edu_dynamixel.urdf",
+     "label": "교육용 Dynamixel"
+    },
+    {
+     "path": "delta/delta_edu_servo.urdf",
+     "label": "교육용 서보"
+    },
+    {
+     "path": "delta/delta_printer_stepper.urdf",
+     "label": "3D 프린터 스테퍼"
+    },
+    {
+     "path": "delta/delta_industrial_picker.urdf",
+     "label": "산업용 피커"
+    }
+   ],
+   "files": [
+    {
+     "path": "delta/delta_edu_dynamixel.urdf",
+     "size": 15277
+    },
+    {
+     "path": "delta/delta_edu_servo.urdf",
+     "size": 14040
+    },
+    {
+     "path": "delta/delta_industrial_picker.urdf",
+     "size": 14035
+    },
+    {
+     "path": "delta/delta_printer_stepper.urdf",
+     "size": 13946
+    }
+   ]
+  }
+ ]
+}

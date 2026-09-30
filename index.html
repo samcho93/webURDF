@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>webURDF — URDF 뷰어 · 편집기</title>
+  <meta name="description" content="브라우저에서 URDF/xacro 로봇 모델을 열고, 보고, 편집하고, 검사하는 도구">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><path d='M9 24V14l7-6 7 6v10' fill='none' stroke='white' stroke-width='2.6' stroke-linejoin='round'/><circle cx='16' cy='8' r='2.6' fill='white'/></svg>">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.175.0/examples/jsm/",
+      "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.175.0/examples/jsm/",
+      "urdf-loader": "https://cdn.jsdelivr.net/npm/urdf-loader@0.13.1/src/URDFLoader.js",
+      "urdf-loader/src/": "https://cdn.jsdelivr.net/npm/urdf-loader@0.13.1/src/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" title="webURDF">
+      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 24V14l7-6 7 6v10" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><circle cx="16" cy="8" r="2.6" fill="#fff"/></svg>
+      <span>webURDF</span>
+    </a>
+    <nav class="actions">
+      <div class="menu">
+        <button class="btn" data-menu="open-menu">📂 열기 <span class="caret">▾</span></button>
+        <div class="menu-pop" id="open-menu">
+          <button data-action="open-files">파일 열기… <kbd>Ctrl+O</kbd></button>
+          <button data-action="open-folder">폴더 열기…</button>
+          <button data-action="open-zip">ZIP 열기…</button>
+          <button data-action="add-files">현재 모델에 파일 추가…</button>
+          <hr>
+          <button data-action="open-url">URL / GitHub 링크…</button>
+          <hr>
+          <div class="menu-label">새로 만들기</div>
+          <button data-action="new" data-template="blank">빈 로봇</button>
+          <button data-action="new" data-template="arm">2축 로봇팔 템플릿</button>
+          <button data-action="new" data-template="car">차동 구동 로봇 템플릿</button>
+        </div>
+      </div>
+      <div class="menu">
+        <button class="btn" data-menu="example-menu">🤖 예제 <span class="caret">▾</span></button>
+        <div class="menu-pop wide" id="example-menu"><div class="muted pad">불러오는 중…</div></div>
+      </div>
+      <div class="menu">
+        <button class="btn" data-menu="export-menu">💾 내보내기 <span class="caret">▾</span></button>
+        <div class="menu-pop" id="export-menu">
+          <button data-action="save-urdf">URDF 저장 <kbd>Ctrl+S</kbd></button>
+          <button data-action="save-zip">URDF + 메시 ZIP 패키지</button>
+          <button data-action="save-glb">3D 모델 (GLB)</button>
+          <button data-action="save-png">스크린샷 (PNG)</button>
+          <button data-action="save-pose">현재 자세 (JSON)</button>
+          <button data-action="load-pose">자세 불러오기 (JSON)…</button>
+          <hr>
+          <button data-action="copy-link">공유 링크 복사</button>
+        </div>
+      </div>
+      <span class="sep"></span>
+      <button class="btn icon" data-action="undo" title="실행 취소 (Ctrl+Z)">↶</button>
+      <button class="btn icon" data-action="redo" title="다시 실행 (Ctrl+Y)">↷</button>
+    </nav>
+    <div class="doc-title" id="doc-title"></div>
+    <div class="right-actions">
+      <button class="btn icon" data-action="toggle-left" title="왼쪽 패널">◧</button>
+      <button class="btn icon" data-action="toggle-right" title="오른쪽 패널">◨</button>
+      <button class="btn icon" data-action="theme" title="테마 전환">◐</button>
+      <button class="btn icon" data-action="help" title="도움말 (?)">?</button>
+    </div>
+  </header>
+
+  <main class="layout" id="layout">
+    <!-- LEFT: structure / joints / files -->
+    <aside class="panel left" id="left-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="tree">구조</button>
+        <button class="tab" data-tab="joints">관절</button>
+        <button class="tab" data-tab="files">파일</button>
+      </div>
+      <section class="tab-body active" data-body="tree">
+        <div class="toolbar-row">
+          <input type="search" id="tree-filter" placeholder="링크 / 조인트 검색" autocomplete="off">
+        </div>
+        <div class="tree" id="tree"></div>
+      </section>
+      <section class="tab-body" data-body="joints">
+        <div class="toolbar-row wrap">
+          <button class="btn sm" data-action="joints-zero">0 으로</button>
+          <button class="btn sm" data-action="joints-random">무작위</button>
+          <button class="btn sm" id="anim-btn" data-action="joints-animate">▶ 스윕</button>
+          <label class="chk sm"><input type="checkbox" id="deg-toggle" checked> 도(°)</label>
+          <label class="chk sm" title="한계 무시"><input type="checkbox" id="ignore-limits"> 한계 무시</label>
+        </div>
+        <div id="joint-list" class="joint-list"></div>
+      </section>
+      <section class="tab-body" data-body="files">
+        <div class="toolbar-row"><span class="muted" id="vfs-label">파일 없음</span></div>
+        <div class="file-tree" id="file-tree"></div>
+      </section>
+    </aside>
+    <div class="resizer" data-resize="left"></div>
+
+    <!-- CENTER: 3D view -->
+    <section class="stage" id="stage">
+      <div class="viewport" id="viewport"></div>
+      <div class="view-toolbar">
+        <div class="seg">
+          <button class="tbtn" data-view="iso" title="등각">ISO</button>
+          <button class="tbtn" data-view="front" title="정면 (+X)">앞</button>
+          <button class="tbtn" data-view="left" title="왼쪽 (+Y)">좌</button>
+          <button class="tbtn" data-view="top" title="위 (+Z)">위</button>
+          <button class="tbtn" data-action="fit" title="화면 맞춤 (F)">⤢</button>
+        </div>
+        <div class="menu">
+          <button class="tbtn" data-menu="display-menu">표시 ▾</button>
+          <div class="menu-pop right" id="display-menu">
+            <label class="chk"><input type="checkbox" data-opt="visual" checked> 비주얼 형상</label>
+            <label class="chk"><input type="checkbox" data-opt="collision"> 충돌 형상</label>
+            <label class="chk"><input type="checkbox" data-opt="wireframe"> 와이어프레임</label>
+            <label class="chk"><input type="checkbox" data-opt="frames"> 링크 좌표계</label>
+            <label class="chk"><input type="checkbox" data-opt="jointAxes"> 관절 축</label>
+            <label class="chk"><input type="checkbox" data-opt="com"> 질량 중심 (COM)</label>
+            <label class="chk"><input type="checkbox" data-opt="inertia"> 관성 상자</label>
+            <label class="chk"><input type="checkbox" data-opt="labels"> 링크 이름</label>
+            <hr>
+            <label class="chk"><input type="checkbox" data-opt="grid" checked> 격자</label>
+            <label class="chk"><input type="checkbox" data-opt="shadows" checked> 그림자</label>
+            <label class="chk"><input type="checkbox" data-opt="drag" checked> 드래그로 관절 조작</label>
+            <label class="chk"><input type="checkbox" data-opt="autoRotate"> 자동 회전</label>
+            <div class="row"><span>투명도</span><input type="range" min="0.1" max="1" step="0.05" value="1" data-opt="opacity"></div>
+            <div class="row"><span>위쪽 축</span>
+              <select data-opt="upAxis"><option value="Z">+Z (ROS)</option><option value="Y">+Y</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="grid-note" id="grid-note"></div>
+      <div class="welcome" id="welcome">
+        <div class="welcome-card">
+          <h1>URDF 를 끌어다 놓으세요</h1>
+          <p>URDF · xacro 파일, 메시가 들어있는 <b>폴더</b>, ZIP 을 이 창에 드롭하거나 아래에서 선택하세요.</p>
+          <div class="welcome-actions">
+            <button class="btn primary" data-action="open-files">파일 열기</button>
+            <button class="btn primary" data-action="open-folder">폴더 열기</button>
+            <button class="btn" data-action="open-url">URL / GitHub</button>
+          </div>
+          <h2>예제 로봇</h2>
+          <div class="example-grid" id="welcome-examples"></div>
+        </div>
+      </div>
+      <div class="drop-overlay" id="drop-overlay"><div>여기에 놓으면 열립니다</div></div>
+      <div class="progress" id="progress"><div class="bar"></div><span></span></div>
+    </section>
+    <div class="resizer" data-resize="right"></div>
+
+    <!-- RIGHT: inspector / code / check / info / graph -->
+    <aside class="panel right" id="right-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="props">속성</button>
+        <button class="tab" data-tab="code">코드</button>
+        <button class="tab" data-tab="check">검사 <span class="badge" id="check-badge"></span></button>
+        <button class="tab" data-tab="info">정보</button>
+        <button class="tab" data-tab="graph">그래프</button>
+      </div>
+      <section class="tab-body active" data-body="props"><div id="props" class="props"></div></section>
+      <section class="tab-body code-body" data-body="code">
+        <div class="toolbar-row wrap">
+          <button class="btn sm primary" data-action="code-apply" title="Ctrl+Enter">적용</button>
+          <label class="chk sm"><input type="checkbox" id="code-live" checked> 실시간 반영</label>
+          <button class="btn sm" data-action="code-format">정렬</button>
+          <button class="btn sm" data-action="code-find" title="Ctrl+F">찾기</button>
+          <span class="muted sm" id="code-mode"></span>
+        </div>
+        <div class="find-bar" id="find-bar">
+          <input id="find-input" placeholder="찾기"><input id="replace-input" placeholder="바꾸기">
+          <button class="btn sm" data-action="find-next">다음</button>
+          <button class="btn sm" data-action="replace-one">바꾸기</button>
+          <button class="btn sm" data-action="replace-all">모두</button>
+          <span class="muted sm" id="find-count"></span>
+        </div>
+        <div class="editor" id="editor">
+          <div class="gutter" id="gutter"></div>
+          <div class="code-wrap">
+            <pre class="hl" id="code-hl" aria-hidden="true"></pre>
+            <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
+          </div>
+        </div>
+        <div class="code-error" id="code-error"></div>
+      </section>
+      <section class="tab-body" data-body="check"><div id="check" class="check"></div></section>
+      <section class="tab-body" data-body="info"><div id="info" class="info"></div></section>
+      <section class="tab-body graph-body" data-body="graph">
+        <div class="toolbar-row"><button class="btn sm" data-action="graph-fit">맞춤</button><button class="btn sm" data-action="graph-svg">SVG 저장</button><span class="muted sm">휠: 확대 · 드래그: 이동 · 클릭: 선택</span></div>
+        <div class="graph" id="graph"></div>
+      </section>
+    </aside>
+  </main>
+
+  <input type="file" id="file-input" multiple hidden accept=".urdf,.xacro,.xml,.stl,.dae,.obj,.mtl,.glb,.gltf,.bin,.ply,.png,.jpg,.jpeg,.zip,.yaml">
+  <input type="file" id="folder-input" webkitdirectory directory multiple hidden>
+  <input type="file" id="zip-input" accept=".zip" hidden>
+  <input type="file" id="add-input" multiple hidden>
+  <input type="file" id="pose-input" accept=".json" hidden>
+
+  <dialog id="dlg" class="dlg"><form method="dialog" id="dlg-form"></form></dialog>
+  <div class="toast-wrap" id="toasts"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
