@@ -375,7 +375,7 @@ export class Viewer extends EventTarget {
         holder.quaternion.copy(rpyQuat(inr.rpy));
         if (this.opts.com) {
           const r = Math.max(frameSize * 0.18 * Math.cbrt(inr.mass / Math.max(this.totalMass() / this.model.links.length, 1e-6)), frameSize * 0.06);
-          const s = new THREE.Mesh(new THREE.SphereGeometry(Math.min(r, frameSize * 0.5), 16, 12), comMaterial());
+          const s = new THREE.Mesh(new THREE.SphereGeometry(Math.min(r, frameSize * 0.3), 16, 12), comMaterial());
           s.renderOrder = 998;
           holder.add(s);
         }

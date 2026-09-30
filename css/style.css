@@ -316,6 +316,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 11.5px; }
   body { overflow: auto; }
   .topbar { flex-wrap: wrap; height: auto; padding: 6px 10px; }
   .brand span { display: none; }
+  .right-actions [data-action^="toggle"] { display: none; }
   .layout { flex-direction: column; overflow: visible; }
   .panel.left, .panel.right { width: auto; border: 0; border-top: 1px solid var(--line); max-height: none; }
   .panel.left { order: 2; height: 46vh; }

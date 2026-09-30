@@ -9,6 +9,7 @@ import { expandXacro, isXacro, parseXML } from './xacro.js';
 import * as M from './model.js';
 import { CodeEditor } from './ui/code.js';
 import { GraphView } from './ui/graph.js';
+import { toMJCF } from './convert.js';
 import { $, $$, h, toast, download, debounce, dialog, RAD2DEG, num } from './ui/util.js';
 
 // ============================================================================
@@ -61,7 +62,7 @@ async function openVFS(vfs, { entry = null, choices = null, origin = null } = {}
     if (S.vfs && S.source) {
       S.vfs.merge(vfs);
       toast(`${vfs.size}개 파일을 현재 모델에 추가했습니다`, 'ok');
-      await rebuild({ keepView: true });
+      await rebuild({ keepView: true, fitAfter: true });
       return;
     }
     toast('URDF / xacro 파일을 찾지 못했습니다', 'error');
@@ -101,7 +102,7 @@ async function setSource(text, { fresh = false, fromEditor = false, keepView = !
   await rebuild({ fresh, fromEditor, keepView });
 }
 
-async function rebuild({ fresh = false, fromEditor = false, keepView = true } = {}) {
+async function rebuild({ fresh = false, fromEditor = false, keepView = true, fitAfter = false } = {}) {
   const token = ++S.build;
   let doc;
   $('#code-error').textContent = '';
@@ -147,7 +148,7 @@ async function rebuild({ fresh = false, fromEditor = false, keepView = true } = 
     status.set(r.ref, r.error ? { error: r.error.message || String(r.error) } : { path: r.path || r.url, fuzzy: r.fuzzy, info: r.info });
     S.pending--;
     if (total > 2) progress(`메시 불러오는 중… ${total - S.pending}/${total}`, (total - S.pending) / total);
-    if (S.pending === 0) meshesDone(fresh, token);
+    if (S.pending === 0) meshesDone(fresh || fitAfter, token);
   };
   const cb = meshes.callback(S.path, onMesh);
   loader.loadMeshCb = (path, manager, material, done) => { S.pending++; total++; cb(path, manager, material, done); };
@@ -178,20 +179,20 @@ async function rebuild({ fresh = false, fromEditor = false, keepView = true } = 
   renderInfo();
   graph.render(S.model);
   graph.select(S.selected);
-  if (S.pending === 0) meshesDone(fresh, token);
+  if (S.pending === 0) meshesDone(fresh || fitAfter, token);
 }
 
-function meshesDone(fresh, token) {
+function meshesDone(fit, token) {
   if (token !== S.build) return;
   progress(null);
-  viewer.meshesLoaded({ fit: fresh });
+  viewer.meshesLoaded({ fit });
   renderCheck();
   renderInfo();
   renderFiles();
   const failed = [...S.meshStatus.values()].filter((s) => s.error).length;
   const st = M.stats(S.model);
   setStatus(`${S.model.name || '(이름 없음)'} — 링크 ${st.links} · 조인트 ${st.joints} · 자유도 ${st.dof}${failed ? ` · 메시 실패 ${failed}` : ''}`);
-  if (fresh && failed) toast(`메시 ${failed}개를 찾지 못했습니다. [검사] 탭을 확인하거나 메시 폴더를 추가하세요.`, 'warn', 6000);
+  if (fit && failed) toast(`메시 ${failed}개를 찾지 못했습니다. [검사] 탭을 확인하거나 메시 폴더를 추가하세요.`, 'warn', 6000);
 }
 
 function setStatus(t) { $('#status').textContent = t; }
@@ -246,7 +247,7 @@ async function addFiles(files) {
   S.vfs.merge(extra);
   meshes.clear();
   toast(`${extra.size}개 파일을 추가했습니다`, 'ok');
-  await rebuild({ keepView: true });
+  await rebuild({ keepView: true, fitAfter: true });
   renderFiles();
 }
 
@@ -1140,6 +1141,12 @@ const ACTIONS = {
   },
   'save-urdf': () => { if (S.model) download(S.xacro ? basename(S.path) : robotFileName(), S.xacro ? S.source : S.urdf, 'text/xml'); },
   'save-zip': exportZip,
+  'save-mjcf': () => {
+    if (!S.model) return;
+    const { text, warnings } = toMJCF(S.model, { meshStatus: S.meshStatus });
+    download(robotFileName('.xml'), text, 'text/xml');
+    if (warnings.length) toast(`MJCF 변환 경고 ${warnings.length}건 — 파일 상단 주석을 확인하세요`, 'warn', 5000);
+  },
   'save-glb': async () => { try { download(robotFileName('.glb'), await viewer.exportGLB()); } catch (e) { toast(e.message, 'error'); } },
   'save-png': () => { const a = h('a', { href: viewer.screenshot(2), download: robotFileName('.png') }); a.click(); },
   'save-pose': exportPose,
@@ -1251,7 +1258,7 @@ window.addEventListener('drop', async (e) => {
   try {
     const vfs = await Src.fromDataTransfer(e.dataTransfer);
     // dropping only meshes onto an open model adds them
-    if (S.model && !vfs.robotFiles().length) { S.vfs.merge(vfs); meshes.clear(); toast(`${vfs.size}개 파일을 추가했습니다`, 'ok'); await rebuild({ keepView: true }); renderFiles(); }
+    if (S.model && !vfs.robotFiles().length) { S.vfs.merge(vfs); meshes.clear(); toast(`${vfs.size}개 파일을 추가했습니다`, 'ok'); await rebuild({ keepView: true, fitAfter: true }); renderFiles(); }
     else await openVFS(vfs);
   } catch (err) { toast(err.message, 'error'); } finally { progress(null); }
 });

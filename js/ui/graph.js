@@ -90,18 +90,22 @@ export class GraphView {
     const maxX = Math.max(...[...pos.values()].map((p) => p.x)) + W;
     const maxY = Math.max(...[...pos.values()].map((p) => p.y)) + H;
     this.bounds = { x: -20, y: -20, w: maxX + 40, h: maxY + 40 };
+    this.view = { ...this.bounds };
+    this.applyView();
     this.fit();
   }
 
   fit() {
     if (!this.bounds) return;
     const r = this.el.getBoundingClientRect();
-    const aspect = (r.width || 1) / (r.height || 1);
-    let { x, y, w, h } = this.bounds;
-    if (w / h > aspect) { const nh = w / aspect; y -= (nh - h) / 2; h = nh; } else { const nw = h * aspect; x -= (nw - w) / 2; w = nw; }
-    // don't blow tiny trees up
-    const minW = (r.width || 400) * 1.0;
-    if (w < minW) { const k = minW / w; x -= (w * k - w) / 2; y -= (h * k - h) / 2; w *= k; h *= k; }
+    if (!r.width || !r.height) return; // hidden tab: fit again when shown
+    const b = this.bounds;
+    // pixels per unit: fit the whole tree, but never enlarge and never shrink
+    // below 70 % so labels stay readable (pan to see the rest)
+    const k = Math.max(Math.min(r.width / b.w, r.height / b.h, 1), 0.7);
+    const w = r.width / k, h = r.height / k;
+    const x = w >= b.w ? b.x - (w - b.w) / 2 : b.x;
+    const y = h >= b.h ? b.y - (h - b.h) / 2 : b.y;
     this.view = { x, y, w, h };
     this.applyView();
   }
