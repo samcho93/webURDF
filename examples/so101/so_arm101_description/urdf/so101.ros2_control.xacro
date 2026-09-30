@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!--
+  ros2_control 하드웨어 인터페이스 정의.
+
+  position_offset 은 "서보 틱" 단위입니다. RViz 에 보이는 자세가 실물과 어긋날 때
+  다음 공식으로 보정합니다.
+
+      새 offset = 현재 offset + (RViz 오차[rad] / 0.00153398)
+
+  0.00153398 rad = 2π / 4096 = STS3215 의 1틱
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- 조인트 한 개 정의 -->
+  <xacro:macro name="so101_joint_iface" params="prefix name id min max offset:=0">
+    <joint name="${prefix}${name}">
+      <command_interface name="position">
+        <param name="min">${min}</param>
+        <param name="max">${max}</param>
+      </command_interface>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <param name="servo_id">${id}</param>
+      <param name="position_offset">${offset}</param>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="so_arm101_ros2_control"
+               params="name prefix:='' hardware_type:=mock
+                       usb_port:=/dev/ttyACM0 baud_rate:=1000000">
+
+    <ros2_control name="${name}" type="system">
+
+      <!-- ── 하드웨어 플러그인 ────────────────────────────────── -->
+      <xacro:if value="${hardware_type == 'mock'}">
+        <hardware>
+          <plugin>mock_components/GenericSystem</plugin>
+          <param name="calculate_dynamics">true</param>
+        </hardware>
+      </xacro:if>
+
+      <xacro:if value="${hardware_type == 'gazebo'}">
+        <hardware>
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+        </hardware>
+      </xacro:if>
+
+      <xacro:if value="${hardware_type == 'real'}">
+        <hardware>
+          <!--
+            so_arm_hardware 는 SCS 프로토콜로 STS3215 와 직접 통신하는
+            SystemInterface 구현입니다. 별도 드라이버 설치가 필요 없습니다.
+            (본 강좌 저장소에는 인터페이스 정의만 포함되어 있습니다.
+             실제 C++ 구현은 원문 위키가 배포하는 SO-ARM101_ROS2.zip 또는
+             github.com/holmsslk/so-arm-moveit-hardware 를 참고하세요.)
+          -->
+          <plugin>so_arm_hardware/SOArmHardware</plugin>
+          <param name="usb_port">${usb_port}</param>
+          <param name="baud_rate">${baud_rate}</param>
+          <param name="torque_enable">true</param>
+          <param name="read_timeout_ms">20</param>
+        </hardware>
+      </xacro:if>
+
+      <!-- ── 조인트 (서보 ID 1~6) ────────────────────────────── -->
+      <xacro:so101_joint_iface prefix="${prefix}" name="shoulder_pan"  id="1"
+                               min="-1.91986"  max="1.91986"  offset="0"/>
+      <xacro:so101_joint_iface prefix="${prefix}" name="shoulder_lift" id="2"
+                               min="-1.74533"  max="1.74533"  offset="0"/>
+      <xacro:so101_joint_iface prefix="${prefix}" name="elbow_flex"    id="3"
+                               min="-1.69"     max="1.69"     offset="0"/>
+      <xacro:so101_joint_iface prefix="${prefix}" name="wrist_flex"    id="4"
+                               min="-1.65806"  max="1.65806"  offset="0"/>
+      <xacro:so101_joint_iface prefix="${prefix}" name="wrist_roll"    id="5"
+                               min="-2.74385"  max="2.84121"  offset="0"/>
+      <xacro:so101_joint_iface prefix="${prefix}" name="gripper"       id="6"
+                               min="-0.174533" max="1.74533"  offset="0"/>
+
+    </ros2_control>
+  </xacro:macro>
+</robot>

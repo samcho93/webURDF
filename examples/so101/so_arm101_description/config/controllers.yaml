@@ -1,0 +1,58 @@
+# SO-ARM101 ros2_control 컨트롤러 설정
+#
+# 주의: 그리퍼 전용 컨트롤러를 따로 두지 않습니다.
+#       joint_trajectory_controller 가 6개 조인트 전체를 제어합니다.
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    joint_trajectory_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    # Gazebo 가 기본으로 띄우는 컨트롤러. 19장 참고 — 수동으로 비활성화한 뒤
+    # joint_trajectory_controller 를 spawn 해야 합니다.
+    forward_position_controller:
+      type: forward_command_controller/ForwardCommandController
+
+joint_trajectory_controller:
+  ros__parameters:
+    joints:
+      - shoulder_pan
+      - shoulder_lift
+      - elbow_flex
+      - wrist_flex
+      - wrist_roll
+      - gripper
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    open_loop_control: false
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 0.5
+      shoulder_pan:  { trajectory: 0.20, goal: 0.05 }
+      shoulder_lift: { trajectory: 0.20, goal: 0.05 }
+      elbow_flex:    { trajectory: 0.20, goal: 0.05 }
+      wrist_flex:    { trajectory: 0.20, goal: 0.05 }
+      wrist_roll:    { trajectory: 0.25, goal: 0.06 }
+      gripper:       { trajectory: 0.30, goal: 0.08 }
+
+forward_position_controller:
+  ros__parameters:
+    joints:
+      - shoulder_pan
+      - shoulder_lift
+      - elbow_flex
+      - wrist_flex
+      - wrist_roll
+      - gripper
+    interface_name: position

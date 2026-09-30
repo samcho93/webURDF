@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<!-- tiki_gazebo.urdf.xacro — tiki_description의 URDF에 Gazebo(ros_gz, Fortress/Harmonic) 플러그인을 얹는다 (R07).
+     치수·질량·관성은 tiki_mini.urdf(robot.json에서 생성)에서 오고, 여기서는 시뮬레이션에 필요한 것만 더한다:
+     차동 구동, 조인트 상태, 라이다(laser_link), IMU(imu_link), 카메라(camera_link). -->
+<robot name="tiki_mini" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find tiki_description)/urdf/tiki_mini.urdf"/>
+
+  <!-- 바퀴 마찰: 고무 타이어는 크게, 캐스터는 작게 (미끄러지며 돌도록) -->
+  <gazebo reference="left_wheel_link"><mu1>1.2</mu1><mu2>1.2</mu2></gazebo>
+  <gazebo reference="right_wheel_link"><mu1>1.2</mu1><mu2>1.2</mu2></gazebo>
+  <gazebo reference="caster_link"><mu1>0.02</mu1><mu2>0.02</mu2></gazebo>
+
+  <gazebo>
+    <!-- 차동 구동: /cmd_vel → 바퀴 조인트, /odom + TF odom→base_footprint (tiki_driver 대신) -->
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>0.1924</wheel_separation>
+      <wheel_radius>0.0325</wheel_radius>
+      <max_linear_acceleration>0.5</max_linear_acceleration>
+      <max_angular_acceleration>2.5</max_angular_acceleration>
+      <max_linear_velocity>0.6</max_linear_velocity>      <!-- 175 rpm -->
+      <max_angular_velocity>6.0</max_angular_velocity>
+      <odom_publish_frequency>30</odom_publish_frequency>
+      <topic>cmd_vel</topic>
+      <odom_topic>odom</odom_topic>
+      <tf_topic>tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+    </plugin>
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>joint_states</topic>
+      <joint_name>left_wheel_joint</joint_name>
+      <joint_name>right_wheel_joint</joint_name>
+    </plugin>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+  </gazebo>
+
+  <!-- RPLIDAR C1: 360 x 1°, 0.12~12 m, 10 Hz. 규약은 ROS(반시계 +) — RPLIDAR(시계 +)로 되돌리는 것은 R05 laserscan_to_cw -->
+  <gazebo reference="laser_link">
+    <sensor name="rplidar" type="gpu_lidar">
+      <topic>scan</topic>
+      <gz_frame_id>laser_link</gz_frame_id>
+      <update_rate>10</update_rate>
+      <lidar>
+        <scan>
+          <horizontal><samples>360</samples><resolution>1</resolution><min_angle>-3.14159</min_angle><max_angle>3.14159</max_angle></horizontal>
+        </scan>
+        <range><min>0.12</min><max>12.0</max><resolution>0.01</resolution></range>
+        <noise type="gaussian"><mean>0.0</mean><stddev>0.01</stddev></noise>
+      </lidar>
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+    </sensor>
+  </gazebo>
+
+  <!-- BNO055: 100 Hz. 자이로 바이어스·잡음은 robot.json drift 0.3°/min 근사 -->
+  <gazebo reference="imu_link">
+    <sensor name="bno055" type="imu">
+      <topic>imu/data</topic>
+      <gz_frame_id>imu_link</gz_frame_id>
+      <update_rate>100</update_rate>
+      <imu>
+        <angular_velocity>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>0.002</stddev><bias_mean>0.00009</bias_mean></noise></z>
+        </angular_velocity>
+      </imu>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+
+  <!-- IMX219 (320x240, fx = 230 → 수평 시야 2·atan(160/230) = 69.6°) -->
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <topic>image_raw</topic>
+      <gz_frame_id>camera_optical_link</gz_frame_id>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.2150</horizontal_fov>
+        <image><width>320</width><height>240</height><format>R8G8B8</format></image>
+        <clip><near>0.02</near><far>10.0</far></clip>
+      </camera>
+      <always_on>true</always_on>
+    </sensor>
+  </gazebo>
+</robot>

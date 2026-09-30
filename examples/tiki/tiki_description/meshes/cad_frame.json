@@ -1,0 +1,32 @@
+{
+ "source": "TIKI MINI 전체 구성.STEP (SolidWorks 2025, AP203, mm)",
+ "track_m": 0.1924,
+ "tire_radius_bbox_m": 0.0344,
+ "body_x_m": [
+  -0.1804,
+  0.0415
+ ],
+ "body_y_m": [
+  -0.1081,
+  0.1081
+ ],
+ "body_z_m": [
+  -0.022,
+  0.028
+ ],
+ "all_z_m": [
+  -0.0325,
+  0.0379
+ ],
+ "caster_bottom_z_m": -0.0325,
+ "caster_centers_m": [
+  [
+   -0.1515,
+   0.047
+  ],
+  [
+   -0.1515,
+   -0.047
+  ]
+ ]
+}

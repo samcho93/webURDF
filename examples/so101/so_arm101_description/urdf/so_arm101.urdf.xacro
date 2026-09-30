@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!--
+  SO-ARM101 최상위 xacro.
+
+  인자
+    hardware_type : mock | gazebo | real     (기본 mock)
+    usb_port      : 실기 시리얼 포트          (기본 /dev/ttyACM0)
+    baud_rate     : 서보 보레이트             (기본 1000000)
+    prefix        : 링크/조인트 이름 접두사   (듀얼 암 구성용)
+
+  사용 예
+    ros2 run xacro xacro so_arm101.urdf.xacro hardware_type:=real usb_port:=/dev/ttyACM0
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="so_arm101">
+
+  <xacro:arg name="hardware_type" default="mock"/>
+  <xacro:arg name="usb_port"      default="/dev/ttyACM0"/>
+  <xacro:arg name="baud_rate"     default="1000000"/>
+  <xacro:arg name="prefix"        default=""/>
+
+  <!-- 세계 좌표계 (Gazebo 에서 팔을 고정하기 위해 필요) -->
+  <link name="world"/>
+
+  <!-- 기구 구조 -->
+  <xacro:include filename="$(find so_arm101_description)/urdf/so101_macro.xacro"/>
+  <xacro:so_arm101 prefix="$(arg prefix)" parent="world">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </xacro:so_arm101>
+
+  <!-- ros2_control 하드웨어 인터페이스 -->
+  <xacro:include filename="$(find so_arm101_description)/urdf/so101.ros2_control.xacro"/>
+  <xacro:so_arm101_ros2_control
+      name="SOArm101System"
+      prefix="$(arg prefix)"
+      hardware_type="$(arg hardware_type)"
+      usb_port="$(arg usb_port)"
+      baud_rate="$(arg baud_rate)"/>
+
+  <!-- Gazebo 전용 설정 -->
+  <xacro:include filename="$(find so_arm101_description)/urdf/so101.gazebo.xacro"/>
+  <xacro:so_arm101_gazebo hardware_type="$(arg hardware_type)" prefix="$(arg prefix)"/>
+
+</robot>
