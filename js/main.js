@@ -189,11 +189,9 @@ function meshesDone(fresh, token) {
   renderInfo();
   renderFiles();
   const failed = [...S.meshStatus.values()].filter((s) => s.error).length;
-  if (fresh) {
-    const st = M.stats(S.model);
-    setStatus(`${S.model.name || '(이름 없음)'} — 링크 ${st.links} · 조인트 ${st.joints} · 자유도 ${st.dof}${failed ? ` · 메시 실패 ${failed}` : ''}`);
-    if (failed) toast(`메시 ${failed}개를 찾지 못했습니다. [검사] 탭을 확인하거나 메시 폴더를 추가하세요.`, 'warn', 6000);
-  }
+  const st = M.stats(S.model);
+  setStatus(`${S.model.name || '(이름 없음)'} — 링크 ${st.links} · 조인트 ${st.joints} · 자유도 ${st.dof}${failed ? ` · 메시 실패 ${failed}` : ''}`);
+  if (fresh && failed) toast(`메시 ${failed}개를 찾지 못했습니다. [검사] 탭을 확인하거나 메시 폴더를 추가하세요.`, 'warn', 6000);
 }
 
 function setStatus(t) { $('#status').textContent = t; }
@@ -1349,5 +1347,5 @@ for (const r of $$('.resizer')) {
     const g = man.groups.find((x) => x.id === q.get('example'));
     if (g) loadExample(g, q.get('file') || null);
   }
-  window.webURDF = { S, viewer, meshes }; // for debugging from the console
+  window.webURDF = { S, viewer, meshes, loadFiles, loadURL, openVFS }; // for debugging from the console
 })();

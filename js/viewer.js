@@ -319,11 +319,20 @@ export class Viewer extends EventTarget {
       const l = findLink(c)?.name;
       const mats = Array.isArray(c.material) ? c.material : [c.material];
       for (const m of mats) {
-        if (!m || !m.emissive) continue;
-        if (m.userData.baseEmissive === undefined) m.userData.baseEmissive = m.emissive.clone();
-        if (l && l === this.selected) m.emissive.copy(HIGHLIGHT).multiplyScalar(0.55);
-        else if (l && l === this.hoverLink) m.emissive.copy(HOVER).multiplyScalar(0.35);
-        else m.emissive.copy(m.userData.baseEmissive);
+        if (!m || !m.color) continue;
+        if (m.userData.baseColor === undefined) m.userData.baseColor = m.color.clone();
+        if (m.emissive && m.userData.baseEmissive === undefined) m.userData.baseEmissive = m.emissive.clone();
+        const base = m.userData.baseColor;
+        if (l && l === this.selected) {
+          m.color.copy(base).lerp(HIGHLIGHT, 0.6);
+          m.emissive?.copy(HIGHLIGHT).multiplyScalar(0.25);
+        } else if (l && l === this.hoverLink) {
+          m.color.copy(base).lerp(HOVER, 0.35);
+          m.emissive?.copy(HOVER).multiplyScalar(0.1);
+        } else {
+          m.color.copy(base);
+          if (m.emissive) m.emissive.copy(m.userData.baseEmissive);
+        }
       }
     });
   }

@@ -568,7 +568,11 @@ export function parseXML(text, path = '') {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   const err = doc.getElementsByTagName('parsererror')[0];
   if (err) {
-    const e = new Error(`XML 오류 (${path}): ${err.textContent.split('\n').filter(Boolean).slice(0, 2).join(' ')}`);
+    const detail = err.textContent
+      .replace(/This page contains the following errors:/i, '')
+      .replace(/Below is a rendering of the page up to the first error\.?/i, '')
+      .split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 2).join(' ');
+    const e = new Error(`XML 오류${path ? ` (${path.split('/').pop()})` : ''}: ${detail}`);
     const m = /line (\d+)/i.exec(err.textContent);
     if (m) e.line = +m[1];
     throw e;
